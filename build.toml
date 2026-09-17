@@ -10,7 +10,7 @@ upstream = "git+https://github.com/delyan-boychev/disentangled-flash.git"
 backends = ["cuda"]
 
 [general.hub]
-repo-id = "delyan-boychev/disentangled-flash"
+repo-id = "delyanboychev/disentangled-flash"
 
 # Pure-Triton kernel: no compiled extension, so a single noarch build variant
 # covers every supported Torch/CUDA combination. `json` ships the bundled

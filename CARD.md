@@ -42,7 +42,7 @@ from transformers import AutoModelForSequenceClassification, KernelConfig
 kernel_config = KernelConfig(
     kernel_mapping={
         "DebertaV2Encoder": (
-            "delyan-boychev/disentangled-flash:DebertaV2Encoder",
+            "delyanboychev/disentangled-flash:DebertaV2Encoder",
             {"version": 0, "trust_remote_code": True},
         ),
     }

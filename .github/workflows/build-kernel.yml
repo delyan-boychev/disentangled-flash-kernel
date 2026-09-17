@@ -1,0 +1,48 @@
+# Builds the kernel on Hugging Face Jobs and uploads it to the Hub.
+#
+# kernel-builder is a Nix tool, and installing Nix needs root, which is often
+# unavailable on shared GPU boxes. This offloads the build to HF Jobs, where
+# kernel-builder is preinstalled. The kernel is pure Triton (torch-noarch), so
+# the build itself needs no GPU.
+#
+# Requires an HF access token with the `job.write` permission, stored as the
+# repository secret HF_TOKEN (Settings -> Secrets and variables -> Actions).
+name: Build Kernel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "torch-ext/**"
+      - build.toml
+      - flake.nix
+      - flake.lock
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and upload via HF Jobs
+        uses: huggingface/kernel-builder-job@main
+        with:
+          token: ${{ secrets.HF_TOKEN }}
+          namespace: delyanboychev
+          flavor: cpu-xl
+          timeout: "21600"
+          script: |
+            # The container starts with `set -x`; disable tracing so the
+            # token below is not echoed into the streamed logs.
+            set +x
+            export HF_TOKEN="${{ secrets.HF_TOKEN }}"
+            export GIT_LFS_SKIP_SMUDGE=1
+
+            git clone "${{ github.server_url }}/${{ github.repository }}" kernel
+            cd kernel
+            git checkout "${{ github.sha }}"
+
+            kernel-builder build-and-upload \
+              --max-jobs 4 \
+              --cores 8 \
+              --repo-id delyanboychev/disentangled-flash

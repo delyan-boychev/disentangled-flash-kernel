@@ -3,7 +3,7 @@
 Hub-kernel packaging of [DisentangledFlash](https://github.com/delyan-boychev/disentangled-flash) —
 fast exact DeBERTa-v2/v3 disentangled attention in Triton.
 
-Published to the Hub as [`delyan-boychev/disentangled-flash`](https://huggingface.co/delyan-boychev/disentangled-flash)
+Published to the Hub as [`delyanboychev/disentangled-flash`](https://huggingface.co/delyanboychev/disentangled-flash)
 and loaded by Transformers through the `kernels` library. See [`CARD.md`](CARD.md) for the
 user-facing documentation.
 
