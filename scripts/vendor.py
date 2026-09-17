@@ -24,7 +24,7 @@ from pathlib import Path
 
 # Implementation modules copied verbatim from upstream.
 VENDORED_MODULES = (
-    "_reference.py",   # auditable HF DeBERTa reference (Apache-2.0, see NOTICE)
+    "_reference.py",  # auditable HF DeBERTa reference (Apache-2.0, see NOTICE)
     "_torch.py",
     "_validation.py",
     "kernel.py",
@@ -48,7 +48,9 @@ UPSTREAM_REPO = "https://github.com/delyan-boychev/disentangled-flash"
 def _git(source: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(source), *args],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
 
 
@@ -104,7 +106,8 @@ def main() -> int:
 
     # Tuning profiles ship with the kernel via build.toml `pyext = [..., "json"]`.
     profiles = sorted(
-        path for path in tracked
+        path
+        for path in tracked
         if path.startswith("src/disentangled_flash/profiles/") and path.endswith(".json")
     )
     for path in profiles:

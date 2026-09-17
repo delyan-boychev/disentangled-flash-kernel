@@ -56,7 +56,7 @@ def _inputs(batch=2, length=16, vocab=99):
     torch.manual_seed(1)
     input_ids = torch.randint(0, vocab, (batch, length))
     attention_mask = torch.ones(batch, length, dtype=torch.long)
-    attention_mask[0, length // 2:] = 0  # real padding
+    attention_mask[0, length // 2 :] = 0  # real padding
     return input_ids, attention_mask
 
 

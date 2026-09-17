@@ -25,7 +25,7 @@ cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA")
 BASE = dict(
     hidden_size=768,
     num_hidden_layers=4,
-    num_attention_heads=12,      # head dim 64
+    num_attention_heads=12,  # head dim 64
     intermediate_size=3072,
     max_position_embeddings=512,
     relative_attention=True,

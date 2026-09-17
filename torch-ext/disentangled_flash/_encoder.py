@@ -55,7 +55,7 @@ REQUIRED_ATTENTION_ATTRS = (
 # Distinct sequence lengths whose position plans are retained per encoder.
 MAX_CACHED_SHAPES = 16
 
-_STATES: dict[int, "_EncoderState"] = {}
+_STATES: dict[int, _EncoderState] = {}
 _FINALIZERS: dict[int, weakref.finalize] = {}
 _WARNED: set[str] = set()
 
@@ -124,7 +124,9 @@ def _share_projections(shadow: Any, host: Any) -> None:
 def _build_state(encoder: Any) -> _EncoderState:
     first = encoder.layer[0].attention.self
     config = _attention_config(first)
-    pos_ebd_size = config.position_buckets if config.position_buckets > 0 else config.max_relative_positions
+    pos_ebd_size = (
+        config.position_buckets if config.position_buckets > 0 else config.max_relative_positions
+    )
     uses_position_bias = config.relative_attention and bool(
         {"c2p", "p2c"}.intersection(config.pos_att_type)
     )
@@ -239,7 +241,9 @@ def _unsupported_reason(
 
     sequence_length = hidden_states.size(1)
     if sequence_length > MAX_SEQUENCE_LENGTH:
-        return f"sequence length {sequence_length} exceeds the supported maximum {MAX_SEQUENCE_LENGTH}"
+        return (
+            f"sequence length {sequence_length} exceeds the supported maximum {MAX_SEQUENCE_LENGTH}"
+        )
 
     layers = getattr(encoder, "layer", None)
     if not layers:
@@ -337,7 +341,16 @@ def _fast_forward(
     next_kv = hidden_states
     output_states = hidden_states
 
-    for layer, attention, plan in zip(encoder.layer, state.attentions, plans):
+    layers = encoder.layer
+    if not len(layers) == len(state.attentions) == len(plans):
+        # zip() would silently truncate and return a result computed with fewer
+        # layers. Fail loudly instead: the cached state no longer fits the model.
+        raise RuntimeError(
+            "the encoder layout changed after its kernel state was cached "
+            f"({len(layers)} layers, {len(state.attentions)} attentions, {len(plans)} plans)"
+        )
+
+    for layer, attention, plan in zip(layers, state.attentions, plans):
         self_output, _ = attention.forward_prepared(next_kv, mask, plan)
         attention_output = layer.attention.output(self_output, next_kv)
         intermediate_output = layer.intermediate(attention_output)

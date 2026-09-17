@@ -1,0 +1,27 @@
+# Matches the line length of the upstream disentangled-flash repository.
+line-length = 100
+# Hub kernels must stay importable on Python 3.9 (torch 2.8 still supports it),
+# so ruff must not suggest 3.10-only idioms such as zip(strict=).
+target-version = "py39"
+
+# Only this repository's own code is linted. Everything else under
+# torch-ext/disentangled_flash/ is vendored verbatim by scripts/vendor.py and
+# must stay byte-identical to upstream.
+include = [
+    "scripts/**/*.py",
+    "tests/**/*.py",
+    "torch-ext/disentangled_flash/_encoder.py",
+    "torch-ext/disentangled_flash/layers.py",
+    "torch-ext/disentangled_flash/__init__.py",
+]
+
+[lint]
+# Pinned explicitly so the result does not drift with the ruff version.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[lint.isort]
+known-first-party = ["disentangled_flash"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

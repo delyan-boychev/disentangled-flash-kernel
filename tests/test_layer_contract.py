@@ -38,9 +38,7 @@ def test_defines_no_constructor(layer):
 @pytest.mark.parametrize("layer", LAYER_CLASSES, ids=lambda c: c.__name__)
 def test_defines_only_forward(layer):
     methods = {
-        name
-        for name, value in vars(layer).items()
-        if callable(value) and not name.startswith("__")
+        name for name, value in vars(layer).items() if callable(value) and not name.startswith("__")
     }
     assert methods == {"forward"}, f"unexpected methods: {sorted(methods - {'forward'})}"
 
@@ -130,3 +128,52 @@ def test_no_absolute_self_references_in_vendored_code():
                 offenders.append(f"{source.relative_to(package_root)}:{number}: {line.strip()}")
 
     assert not offenders, "absolute self-reference(s) found:\n  " + "\n  ".join(offenders)
+
+
+def test_no_python_310_only_constructs():
+    """The kernel must stay importable on Python 3.9.
+
+    "Python code must be compatible with Python 3.9 and later" -- Kernel Hub
+    requirements. torch 2.8 is a supported build variant and still runs on 3.9,
+    so this is reachable, not theoretical.
+
+    Catches the realistic 3.10-only spellings rather than attempting a full
+    version analysis. Vendored code is included: a re-vendor from upstream is
+    how such a construct would return.
+    """
+    import ast
+    from pathlib import Path
+
+    package_root = Path(__import__("disentangled_flash").__file__).parent
+
+    # (callable or attribute name, why it is 3.10+)
+    banned_names = {
+        "pairwise": "itertools.pairwise is 3.10+",
+        "anext": "anext() is 3.10+",
+        "aiter": "aiter() is 3.10+",
+        "bit_count": "int.bit_count() is 3.10+",
+    }
+
+    offenders = []
+    for source in sorted(package_root.rglob("*.py")):
+        tree = ast.parse(source.read_text(), filename=str(source))
+        relative = source.relative_to(package_root)
+        for node in ast.walk(tree):
+            # `match` statements are 3.10 syntax.
+            if isinstance(node, ast.Match):
+                offenders.append(f"{relative}:{node.lineno}: match statement is 3.10+")
+            # zip(..., strict=...) is 3.10+.
+            if isinstance(node, ast.Call):
+                function = node.func
+                name = getattr(function, "id", None) or getattr(function, "attr", None)
+                if name == "zip" and any(k.arg == "strict" for k in node.keywords):
+                    offenders.append(f"{relative}:{node.lineno}: zip(strict=) is 3.10+")
+                if name in banned_names:
+                    offenders.append(f"{relative}:{node.lineno}: {banned_names[name]}")
+            # Bare `from itertools import pairwise`.
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name in banned_names:
+                        offenders.append(f"{relative}:{node.lineno}: {banned_names[alias.name]}")
+
+    assert not offenders, "Python 3.10+ construct(s) found:\n  " + "\n  ".join(offenders)
