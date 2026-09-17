@@ -75,24 +75,41 @@ head dimensions or lengths, and any unrecognised module layout.
 
 It never replaces submodules, never copies weights, and never changes checkpoint keys.
 
-## Results — H200, DeBERTa-v3-base encoder
+## Results
 
-Geometric-mean speedup across sequence lengths 64–8192:
+The kernel replaces the padded encoder forward that `DebertaV2Model` invokes.
 
-| Batch | Precision | vs. Transformers | vs. FlashDeBERTa |
-|---:|---:|---:|---:|
-| 1 | FP16 | 1.66× | 1.22× |
-| 1 | BF16 | 1.71× | 1.23× |
-| 16 | FP16 | 2.33× | 1.45× |
-| 16 | BF16 | 2.29× | 1.38× |
+`microsoft/deberta-v2-xlarge-mnli`, H200/SM 9.0, FP16, batch 16, length 512, one cold pass over all
+9,815 matched-validation examples (92.62% of the dense input is padding):
 
-At batch 16 / length 8192, FP16: **726.94 ms** vs 1093.03 ms for FlashDeBERTa (1.50×), with
-**5.13 GiB** peak vs 17.39 GiB (70.5% less). Transformers OOMs at that shape.
+| Path | Time | Throughput | Speedup | Differing predictions |
+|---|---:|---:|---:|---:|
+| Transformers reference | 55,963 ms | 175.38 ex/s | 1.00x | — |
+| **This kernel (padded)** | **31,330 ms** | **313.28 ex/s** | **1.79x** | **0 / 9,815** |
+| Standalone packed path | 5,420 ms | 1,811.00 ex/s | 10.33x | 0 / 9,815 |
 
-### Task parity
+Every path reaches 91.7371% accuracy. The kernel is exact — it reorders the same arithmetic, so
+differences are floating-point associativity only.
 
-`microsoft/deberta-v2-xlarge-mnli`, FP16, full 9,815-example matched validation set:
-**91.7371% accuracy with 0 / 9,815 decision mismatches** against Transformers.
+### Padded vs. packed
+
+This Hub kernel implements the **padded** path, because `DebertaV2Encoder.forward` receives a padded
+`[batch, seq, hidden]` batch and must return one.
+
+The **packed** path concatenates the batch into a single `[total_tokens, hidden]` sequence with
+`cu_seqlens` and never computes on padding, which is where the 10.33x above comes from. It cannot be
+reached through the Transformers encoder signature; use the standalone
+[disentangled-flash](https://github.com/delyan-boychev/disentangled-flash) package for it:
+
+```python
+from disentangled_flash import optimize_deberta, pack_padded_with_info, unpack_packed
+```
+
+For reference, packed-path geometric-mean speedups over sequence lengths 64-8192 on the
+DeBERTa-v3-base encoder (H200): 1.66x at batch 1 FP16 and 2.33x at batch 16 FP16 versus the
+Transformers padded encoder, and 1.22x / 1.45x versus FlashDeBERTa packed. At batch 16 and length
+8192 the packed path runs in 726.94 ms with 5.13 GiB peak memory, where the Transformers reference
+runs out of memory.
 
 ## Tuning
 
