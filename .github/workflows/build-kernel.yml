@@ -26,7 +26,9 @@ on:
 
 concurrency:
   group: build-kernel-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a build in flight. This workflow uploads to the Hub and takes
+  # several minutes; cancelling it on every push means it never finishes.
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -66,14 +68,28 @@ jobs:
       - name: Validate build.toml
         run: nix run github:huggingface/kernels#kernel-builder -- check-config .
 
-      - name: Build and upload
+      # Split from the upload so a publish failure still leaves us a build to
+      # download and verify. Publishing needs kernel-creation access on the
+      # owning account, which is granted separately.
+      - name: Build
+        run: |
+          nix run github:huggingface/kernels#kernel-builder -- build-and-copy . -L
+
+      - name: Archive the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-build
+          path: build/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to the Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          nix run github:huggingface/kernels#kernel-builder -- build-and-upload \
+          nix run github:huggingface/kernels#kernel-builder -- upload . \
             --repo-id delyanboychev/disentangled-flash \
-            --output-json upload.json \
-            -L
+            --output-json upload.json
 
       - name: Show the uploaded revision
         if: always()
