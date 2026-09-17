@@ -1,0 +1,17 @@
+DisentangledFlash Hub kernel
+Copyright 2026 Delyan Boychev
+
+Licensed under the Apache License, Version 2.0.
+
+This product includes software derived from Hugging Face Transformers
+(https://github.com/huggingface/transformers), Copyright the HuggingFace Team,
+licensed under the Apache License, Version 2.0.
+
+Specifically, torch-ext/disentangled_flash/_reference.py is derived from the
+DeBERTa-v2/v3 modeling code in Transformers 4.57.6 and retains its original
+Apache-2.0 header. It serves as the auditable reference against which the Triton
+kernel is validated.
+
+The Triton implementation is vendored from
+https://github.com/delyan-boychev/disentangled-flash (Apache-2.0); see
+torch-ext/disentangled_flash/_vendored.py for the exact upstream commit.
