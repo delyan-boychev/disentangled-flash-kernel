@@ -83,7 +83,7 @@ def main() -> int:
         print(f"error: {source} is not a git repository", file=sys.stderr)
         return 1
 
-    commit = _git(source, "rev-parse", args.ref).strip()
+    commit = _git(source, "rev-parse", f"{args.ref}^{{commit}}").strip()
     tracked = set(_git(source, "ls-tree", "-r", "--name-only", args.ref).splitlines())
     failures: list[str] = []
 

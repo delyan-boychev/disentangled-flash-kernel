@@ -94,3 +94,39 @@ def test_package_exports_layers():
 
     assert "layers" in disentangled_flash.__all__
     assert disentangled_flash.layers is layers
+
+
+def test_no_absolute_self_references_in_vendored_code():
+    """Vendored modules must never refer to this package by its absolute name.
+
+    `kernels` loads a Hub kernel under a uniquely generated module name, so an
+    absolute self-reference either raises ModuleNotFoundError or silently
+    resolves to a *different* installation of the package. The requirements put
+    it as: "All Python code imports from the kernel itself must be relative."
+
+    `scripts/vendor.py` catches absolute *imports*; this catches the other
+    spellings, e.g. `resources.files("disentangled_flash.profiles")`.
+
+    Only module-resolution contexts are flagged. Filesystem paths that happen to
+    contain the project name are fine -- `default_user_profile_directory()`
+    deliberately points at ~/.cache/disentangled_flash/profiles, which is shared
+    with the standalone package on purpose.
+    """
+    import re
+    from pathlib import Path
+
+    package_root = Path(__import__("disentangled_flash").__file__).parent
+    pattern = re.compile(
+        r"""(?:resources\.files|import_module|__import__|sys\.modules\s*\[)"""
+        r"""\s*\(?\s*["']disentangled_flash["'.]"""
+    )
+
+    offenders = []
+    for source in sorted(package_root.rglob("*.py")):
+        for number, line in enumerate(source.read_text().splitlines(), start=1):
+            if line.lstrip().startswith("#"):
+                continue
+            if pattern.search(line):
+                offenders.append(f"{source.relative_to(package_root)}:{number}: {line.strip()}")
+
+    assert not offenders, "absolute self-reference(s) found:\n  " + "\n  ".join(offenders)
